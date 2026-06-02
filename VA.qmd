@@ -1,7 +1,10 @@
 ---
 title: "Participação Setorial no Valor Adicionado (Interativo)"
 author: "Caio Lopes"
-format: html
+format:
+  html:
+    theme: cosmo
+    toc: true
 server: shiny
 execute:
   echo: true
@@ -11,69 +14,37 @@ execute:
 
 ## Dados e Preparação Geográfica
 
-O código abaixo roda apenas nos bastidores para extrair os dados de todos os municípios do país na API do SIDRA e cruzar com a base espacial do `geobr`.
+Este painel interativo apresenta a participação da agropecuária, da indústria e dos serviços no Valor Adicionado municipal em 2021. Para tornar o deploy mais estável, a coleta dos dados e o cruzamento com a malha municipal foram separados em um script externo, chamado `01_preparar_dados.R`.
+
+O aplicativo abaixo **não baixa dados do SIDRA nem baixa a malha do `geobr` durante a inicialização**. Ele apenas carrega o arquivo leve `my_workspace_light.RData`, que deve estar no mesmo diretório deste documento.
+
+## Como gerar os dados usados pelo aplicativo
+
+Antes do deploy, execute uma vez no console do R, dentro da pasta do projeto:
+
+```r
+source("01_preparar_dados.R")
+```
+
+Esse comando cria o arquivo `my_workspace_light.RData`, contendo apenas os objetos necessários para o painel: `br_map` e `lista_estados`.
+
+## Inicialização leve do Shiny
 
 ```{r}
 #| context: setup
+#| echo: true
 #| output: false
+#| warning: false
+#| message: false
 
 library(shiny)
-library(sidrar)
-library(tidyverse)
-library(geobr)
+library(dplyr)
+library(ggplot2)
 library(sf)
 library(patchwork)
+library(scales)
 
-# 1. Coleta de dados do Brasil de uma só vez para otimizar a velocidade
-va <- get_sidra(x = 5938, variable = 498, period = "2021", geo = "City") |>
-  select(Município, `Município (Código)`, Valor) |>
-  rename(va = Valor, code_muni = `Município (Código)`, MUN = Município) |>
-  mutate(code_muni = as.double(code_muni))
-
-agro <- get_sidra(x = 5938, variable = 513, period = "2021", geo = "City") |>
-  select(Município, `Município (Código)`, Valor) |>
-  rename(va_agro = Valor, code_muni = `Município (Código)`, MUN = Município) |>
-  mutate(code_muni = as.double(code_muni))
-
-ind <- get_sidra(x = 5938, variable = 517, period = "2021", geo = "City") |>
-  select(Município, `Município (Código)`, Valor) |>
-  rename(va_ind = Valor, code_muni = `Município (Código)`, MUN = Município) |>
-  mutate(code_muni = as.double(code_muni))
-
-serv1 <- get_sidra(x = 5938, variable = 6575, period = "2021", geo = "City") |>
-  select(Município, `Município (Código)`, Valor) |>
-  rename(va_serv1 = Valor, code_muni = `Município (Código)`, MUN = Município) |>
-  mutate(code_muni = as.double(code_muni))
-
-serv2 <- get_sidra(x = 5938, variable = 525, period = "2021", geo = "City") |>
-  select(Município, `Município (Código)`, Valor) |>
-  rename(va_serv2 = Valor, code_muni = `Município (Código)`, MUN = Município) |>
-  mutate(code_muni = as.double(code_muni))
-
-serv <- inner_join(serv1, serv2, by = c("code_muni", "MUN")) |>
-  mutate(va_serv = va_serv1 + va_serv2) |>
-  select(code_muni, MUN, va_serv)
-
-participacao <- va |>
-  inner_join(agro, by = c("code_muni", "MUN")) |>
-  inner_join(ind,  by = c("code_muni", "MUN")) |>
-  inner_join(serv, by = c("code_muni", "MUN")) |>
-  mutate(
-    part_agro = va_agro / va,
-    part_ind  = va_ind  / va,
-    part_serv = va_serv / va
-  ) |>
-  select(code_muni, MUN, part_agro, part_ind, part_serv)
-
-# Baixar shapefile de TODOS os municípios do Brasil
-br_muni <- read_municipality(code_muni = "all", year = 2020)
-
-# Unir o mapa com os dados calculados
-br_map <- br_muni |>
-  left_join(participacao, by = "code_muni")
-
-# Criar lista em ordem alfabética para o menu do Shiny
-lista_estados <- sort(na.omit(unique(br_map$abbrev_state)))
+load("my_workspace.RData")
 
 ```
 
@@ -86,58 +57,97 @@ Selecione a Unidade da Federação desejada no menu abaixo para atualizar os map
 ```{r}
 #| panel: input
 #| echo: false
-# Cria o menu suspenso para o usuário
+
 selectInput(
   inputId = "estado_escolhido",
   label = "Escolha o Estado:",
   choices = lista_estados,
-  selected = "PI"
+  selected = lista_estados[1]
 )
-
 ```
 
 ```{r}
 #| panel: center
 #| echo: false
-# Reserva o espaço onde o gráfico interativo vai aparecer
-plotOutput("mapa_setorial", width = "100%", height = "500px")
 
+plotOutput("mapa_setorial", width = "100%", height = "600px")
 ```
 
 ```{r}
 #| context: server
+#| echo: true
 #| output: false
-# Este bloco de servidor recebe o input do usuário e devolve o mapa
-output$mapa_setorial <- renderPlot({
-  
-  # Puxa a sigla do estado que o usuário marcou no dropdown
-  sigla_uf <- input$estado_escolhido
-  
-  # Filtra o shapefile geral apenas para aquele estado
-  mapa_uf <- br_map |> filter(abbrev_state == sigla_uf)
-  
-  p1 <- ggplot(mapa_uf, aes(fill = part_agro)) +
-    geom_sf(color = "white", size = 0.1) +
-    scale_fill_distiller(palette = "Greens", direction = 1, labels = scales::percent) +
-    labs(title = "Agropecuária", fill = NULL) +
-    theme_void()
-  
-  p2 <- ggplot(mapa_uf, aes(fill = part_ind)) +
-    geom_sf(color = "white", size = 0.1) +
-    scale_fill_distiller(palette = "Oranges", direction = 1, labels = scales::percent) +
-    labs(title = "Indústria", fill = NULL) +
-    theme_void()
-  
-  p3 <- ggplot(mapa_uf, aes(fill = part_serv)) +
-    geom_sf(color = "white", size = 0.1) +
-    scale_fill_distiller(palette = "Blues", direction = 1, labels = scales::percent) +
-    labs(title = "Serviços", fill = NULL) +
-    theme_void()
-  
-  # Compõe a visualização com o título adaptado dinamicamente
-  p1 + p2 + p3 +
-    plot_annotation(title = paste("Participação setorial no Valor Adicionado —", sigla_uf, "(2021)"))
-})
+#| warning: false
+#| message: false
 
+output$mapa_setorial <- renderPlot({
+
+  req(input$estado_escolhido)
+
+  sigla_uf <- input$estado_escolhido
+
+  mapa_uf <- br_map |>
+    filter(abbrev_state == sigla_uf)
+
+  validate(
+    need(nrow(mapa_uf) > 0, "Não há dados disponíveis para o estado selecionado.")
+  )
+
+  p1 <- ggplot(mapa_uf, aes(fill = part_agro)) +
+    geom_sf(color = "white", linewidth = 0.1) +
+    scale_fill_distiller(
+      palette = "Greens",
+      direction = 1,
+      labels = scales::percent,
+      na.value = "grey90"
+    ) +
+    labs(title = "Agropecuária", fill = NULL) +
+    coord_sf(datum = NA) +
+    theme_void()
+
+  p2 <- ggplot(mapa_uf, aes(fill = part_ind)) +
+    geom_sf(color = "white", linewidth = 0.1) +
+    scale_fill_distiller(
+      palette = "Oranges",
+      direction = 1,
+      labels = scales::percent,
+      na.value = "grey90"
+    ) +
+    labs(title = "Indústria", fill = NULL) +
+    coord_sf(datum = NA) +
+    theme_void()
+
+  p3 <- ggplot(mapa_uf, aes(fill = part_serv)) +
+    geom_sf(color = "white", linewidth = 0.1) +
+    scale_fill_distiller(
+      palette = "Blues",
+      direction = 1,
+      labels = scales::percent,
+      na.value = "grey90"
+    ) +
+    labs(title = "Serviços", fill = NULL) +
+    coord_sf(datum = NA) +
+    theme_void()
+
+  p1 + p2 + p3 +
+    plot_annotation(
+      title = paste(
+        "Participação setorial no Valor Adicionado —",
+        sigla_uf,
+        "(2021)"
+      )
+    )
+})
 ```
 
+## Arquivos necessários para o deploy
+
+Para publicar este painel em uma plataforma compatível com Shiny, envie ao menos os seguintes arquivos no mesmo diretório do projeto.
+
+| Arquivo | Função |
+|---|---|
+| `participacao_setorial_deploy.qmd` | Documento Quarto com a interface e o servidor Shiny. |
+| `my_workspace_light.RData` | Base leve carregada pelo aplicativo no deploy. |
+| `01_preparar_dados.R` | Script de replicação e preparação dos dados. Não precisa rodar no deploy, mas deve ficar no repositório para transparência. |
+
+O arquivo `my_workspace_light.RData` deve ser gerado antes da publicação com `source("01_preparar_dados.R")`. Durante o deploy, o `.qmd` apenas carrega esse arquivo, reduzindo o tempo de inicialização do aplicativo.

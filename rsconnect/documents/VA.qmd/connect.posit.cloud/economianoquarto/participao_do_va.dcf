@@ -1,0 +1,14 @@
+name: participao_do_va
+title: Participação do VA
+username: economianoquarto
+account: economianoquarto
+server: connect.posit.cloud
+hostUrl: https://api.connect.posit.cloud/v1
+appId: 019e6c35-b223-8852-18e7-80dc4c85aab1
+bundleId:
+url: https://connect.posit.cloud/economianoquarto/content/019e6c35-b223-8852-18e7-80dc4c85aab1
+version: 1
+quarto_version: 1.1.251
+quarto_engines: knitr
+asMultiple: FALSE
+asStatic: FALSE

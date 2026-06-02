@@ -1,0 +1,15 @@
+name: vad
+title: VAd
+username: economianoquarto
+account: economianoquarto
+server: connect.posit.cloud
+hostUrl: https://api.connect.posit.cloud/v1
+appId: 019e65b8-ff66-b157-5228-b4642795db6a
+bundleId:
+url:
+version: 1
+quarto_version: 1.1.251
+quarto_engines: knitr
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: 01_preparar_dados.R
