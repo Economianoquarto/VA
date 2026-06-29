@@ -1,5 +1,5 @@
 ---
-title: "Participação Setorial no Valor Adicionado (Interativo)"
+title: "Participação Setorial no Valor Adicionado"
 author: "Caio Lopes"
 format:
   html:
@@ -12,47 +12,34 @@ execute:
   message: false
 ---
 
-## Dados e Preparação Geográfica
+## O que é?
 
-Este painel interativo apresenta a participação da agropecuária, da indústria e dos serviços no Valor Adicionado municipal em 2021. Para tornar o deploy mais estável, a coleta dos dados e o cruzamento com a malha municipal foram separados em um script externo, chamado `01_preparar_dados.R`.
+Este painel interativo apresenta a participação da agropecuária, da indústria e dos serviços no Valor Adicionado municipal em 2021. A seleção é feita por estado. O projeto completo está disponível no repositorio https://github.com/Economianoquarto/VA
 
-O aplicativo abaixo **não baixa dados do SIDRA nem baixa a malha do `geobr` durante a inicialização**. Ele apenas carrega o arquivo leve `my_workspace_light.RData`, que deve estar no mesmo diretório deste documento.
-
-## Como gerar os dados usados pelo aplicativo
-
-Antes do deploy, execute uma vez no console do R, dentro da pasta do projeto:
-
-```r
-source("01_preparar_dados.R")
-```
-
-Esse comando cria o arquivo `my_workspace_light.RData`, contendo apenas os objetos necessários para o painel: `br_map` e `lista_estados`.
-
-## Inicialização leve do Shiny
+## Como foi feito?
 
 ```{r}
 #| context: setup
-#| echo: true
+#| echo: false
 #| output: false
 #| warning: false
 #| message: false
 
 library(shiny)
 library(dplyr)
-library(ggplot2)
 library(sf)
-library(patchwork)
 library(scales)
+library(leaflet)
+library(htmltools)
 
 load("my_workspace.RData")
-
 ```
 
 ---
 
 ## Painel Dinâmico Estadual
 
-Selecione a Unidade da Federação desejada no menu abaixo para atualizar os mapas.
+Selecione a Unidade da Federação desejada no menu abaixo para atualizar o mapa.
 
 ```{r}
 #| panel: input
@@ -70,72 +57,83 @@ selectInput(
 #| panel: center
 #| echo: false
 
-plotOutput("mapa_setorial", width = "100%", height = "600px")
+leafletOutput("mapa_setorial", width = "100%", height = "650px")
 ```
 
 ```{r}
 #| context: server
-#| echo: true
+#| echo: false
 #| output: false
 #| warning: false
 #| message: false
 
-output$mapa_setorial <- renderPlot({
+output$mapa_setorial <- renderLeaflet({
 
   req(input$estado_escolhido)
 
-  sigla_uf <- input$estado_escolhido
-
   mapa_uf <- br_map |>
-    filter(abbrev_state == sigla_uf)
+    filter(abbrev_state == input$estado_escolhido) |>
+    mutate(
+      setor_predominante = case_when(
+        part_agro >= part_ind & part_agro >= part_serv ~ "Agropecuária",
+        part_ind >= part_agro & part_ind >= part_serv ~ "Indústria",
+        TRUE ~ "Serviços"
+      )
+    )
 
   validate(
     need(nrow(mapa_uf) > 0, "Não há dados disponíveis para o estado selecionado.")
   )
 
-  p1 <- ggplot(mapa_uf, aes(fill = part_agro)) +
-    geom_sf(color = "white", linewidth = 0.1) +
-    scale_fill_distiller(
-      palette = "Greens",
-      direction = 1,
-      labels = scales::percent,
-      na.value = "grey90"
-    ) +
-    labs(title = "Agropecuária", fill = NULL) +
-    coord_sf(datum = NA) +
-    theme_void()
+  pal <- colorFactor(
+    palette = c(
+      "Agropecuária" = "#2ca25f",
+      "Indústria" = "#f16913",
+      "Serviços" = "#3182bd"
+    ),
+    domain = mapa_uf$setor_predominante
+  )
 
-  p2 <- ggplot(mapa_uf, aes(fill = part_ind)) +
-    geom_sf(color = "white", linewidth = 0.1) +
-    scale_fill_distiller(
-      palette = "Oranges",
-      direction = 1,
-      labels = scales::percent,
-      na.value = "grey90"
-    ) +
-    labs(title = "Indústria", fill = NULL) +
-    coord_sf(datum = NA) +
-    theme_void()
+  rotulos <- sprintf(
+    "<strong>%s</strong><br/>
+     Agropecuária: %s<br/>
+     Indústria: %s<br/>
+     Serviços: %s",
+    mapa_uf$name_muni,
+    scales::percent(mapa_uf$part_agro, accuracy = 0.1),
+    scales::percent(mapa_uf$part_ind, accuracy = 0.1),
+    scales::percent(mapa_uf$part_serv, accuracy = 0.1)
+  ) |>
+    lapply(htmltools::HTML)
 
-  p3 <- ggplot(mapa_uf, aes(fill = part_serv)) +
-    geom_sf(color = "white", linewidth = 0.1) +
-    scale_fill_distiller(
-      palette = "Blues",
-      direction = 1,
-      labels = scales::percent,
-      na.value = "grey90"
-    ) +
-    labs(title = "Serviços", fill = NULL) +
-    coord_sf(datum = NA) +
-    theme_void()
+  bbox <- sf::st_bbox(mapa_uf)
 
-  p1 + p2 + p3 +
-    plot_annotation(
-      title = paste(
-        "Participação setorial no Valor Adicionado —",
-        sigla_uf,
-        "(2021)"
+  leaflet(mapa_uf) |>
+    addProviderTiles(providers$CartoDB.Positron) |>
+    addPolygons(
+      fillColor = ~pal(setor_predominante),
+      fillOpacity = 0.75,
+      color = "white",
+      weight = 0.5,
+      label = rotulos,
+      highlightOptions = highlightOptions(
+        weight = 2,
+        color = "#222222",
+        fillOpacity = 0.9,
+        bringToFront = TRUE
       )
+    ) |>
+    addLegend(
+      position = "bottomright",
+      pal = pal,
+      values = ~setor_predominante,
+      title = "Setor predominante"
+    ) |>
+    fitBounds(
+      lng1 = bbox[["xmin"]],
+      lat1 = bbox[["ymin"]],
+      lng2 = bbox[["xmax"]],
+      lat2 = bbox[["ymax"]]
     )
 })
 ```
