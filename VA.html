@@ -48,8 +48,7 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#o-que-é" id="toc-o-que-é" class="nav-link active" data-scroll-target="#o-que-é">O que é?</a></li>
   <li><a href="#como-foi-feito" id="toc-como-foi-feito" class="nav-link" data-scroll-target="#como-foi-feito">Como foi feito?</a></li>
-  <li><a href="#painel-dinâmico-estadual" id="toc-painel-dinâmico-estadual" class="nav-link" data-scroll-target="#painel-dinâmico-estadual">Painel Dinâmico Estadual</a></li>
-  <li><a href="#arquivos-necessários-para-o-deploy" id="toc-arquivos-necessários-para-o-deploy" class="nav-link" data-scroll-target="#arquivos-necessários-para-o-deploy">Arquivos necessários para o deploy</a></li>
+  <li><a href="#painel-estadual" id="toc-painel-estadual" class="nav-link" data-scroll-target="#painel-estadual">Painel Estadual</a></li>
   </ul>
 </nav>
 </div>
@@ -83,13 +82,18 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="como-foi-feito" class="level2">
 <h2 class="anchored" data-anchor-id="como-foi-feito">Como foi feito?</h2>
+<ol type="1">
+<li><p><strong>Coleta de Dados:</strong> Utilizando o pacote <code>sidrar</code>, foram extraídos os dados do Sistema IBGE de Recuperação Automática (SIDRA) referentes ao Valor Adicionado (VA) municipal para o ano de 2021 (Tabela 5938). Foram coletados os dados do VA total e os valores específicos dos setores de agropecuária (513), indústria (517) e serviços (525 e 5938).</p></li>
+<li><p><strong>Cálculo das Participações Setoriais:</strong> Os dados foram cruzados e, a partir deles, calculou-se a participação percentual de cada setor (agropecuária, indústria e serviços) em relação ao Valor Adicionado total de cada município.</p></li>
+<li><p><strong>Visualização Espacial:</strong> A malha municipal do Brasil referente a 2021 foi obtida através do pacote <code>geobr</code>. Em seguida, os dados setoriais foram unidos a essa base espacial, permitindo a visualização em mapas.</p></li>
+</ol>
 <div class="cell" data-context="setup">
 
 </div>
 <hr>
 </section>
-<section id="painel-dinâmico-estadual" class="level2">
-<h2 class="anchored" data-anchor-id="painel-dinâmico-estadual">Painel Dinâmico Estadual</h2>
+<section id="painel-estadual" class="level2">
+<h2 class="anchored" data-anchor-id="painel-estadual">Painel Estadual</h2>
 <p>Selecione a Unidade da Federação desejada no menu abaixo para atualizar o mapa.</p>
 <div class="cell panel-input card bg-light p-2">
 <div class="cell-output-display no-overflow-x">
@@ -140,37 +144,6 @@ ul.task-list li input[type="checkbox"] {
 <div class="cell" data-context="server">
 
 </div>
-</section>
-<section id="arquivos-necessários-para-o-deploy" class="level2">
-<h2 class="anchored" data-anchor-id="arquivos-necessários-para-o-deploy">Arquivos necessários para o deploy</h2>
-<p>Para publicar este painel em uma plataforma compatível com Shiny, envie ao menos os seguintes arquivos no mesmo diretório do projeto.</p>
-<table class="table">
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Arquivo</th>
-<th>Função</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>participacao_setorial_deploy.qmd</code></td>
-<td>Documento Quarto com a interface e o servidor Shiny.</td>
-</tr>
-<tr class="even">
-<td><code>my_workspace_light.RData</code></td>
-<td>Base leve carregada pelo aplicativo no deploy.</td>
-</tr>
-<tr class="odd">
-<td><code>01_preparar_dados.R</code></td>
-<td>Script de replicação e preparação dos dados. Não precisa rodar no deploy, mas deve ficar no repositório para transparência.</td>
-</tr>
-</tbody>
-</table>
-<p>O arquivo <code>my_workspace_light.RData</code> deve ser gerado antes da publicação com <code>source("01_preparar_dados.R")</code>. Durante o deploy, o <code>.qmd</code> apenas carrega esse arquivo, reduzindo o tempo de inicialização do aplicativo.</p>
 <p>
 <script type="application/shiny-prerendered" data-context="server-start">
 library(shiny)

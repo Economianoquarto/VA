@@ -18,6 +18,12 @@ Este painel interativo apresenta a participação da agropecuária, da indústri
 
 ## Como foi feito?
 
+1. **Coleta de Dados:** Utilizando o pacote `sidrar`, foram extraídos os dados do Sistema IBGE de Recuperação Automática (SIDRA) referentes ao Valor Adicionado (VA) municipal para o ano de 2021 (Tabela 5938). Foram coletados os dados do VA total e os valores específicos dos setores de agropecuária (513), indústria (517) e serviços (525 e 5938).
+
+2. **Cálculo das Participações Setoriais:** Os dados foram cruzados e, a partir deles, calculou-se a participação percentual de cada setor (agropecuária, indústria e serviços) em relação ao Valor Adicionado total de cada município.
+
+3. **Visualização Espacial:** A malha municipal do Brasil referente a 2021 foi obtida através do pacote `geobr`. Em seguida, os dados setoriais foram unidos a essa base espacial, permitindo a visualização em mapas.
+
 ```{r}
 #| context: setup
 #| echo: false
@@ -37,7 +43,7 @@ load("my_workspace.RData")
 
 ---
 
-## Painel Dinâmico Estadual
+## Painel Estadual
 
 Selecione a Unidade da Federação desejada no menu abaixo para atualizar o mapa.
 
@@ -138,14 +144,3 @@ output$mapa_setorial <- renderLeaflet({
 })
 ```
 
-## Arquivos necessários para o deploy
-
-Para publicar este painel em uma plataforma compatível com Shiny, envie ao menos os seguintes arquivos no mesmo diretório do projeto.
-
-| Arquivo | Função |
-|---|---|
-| `participacao_setorial_deploy.qmd` | Documento Quarto com a interface e o servidor Shiny. |
-| `my_workspace_light.RData` | Base leve carregada pelo aplicativo no deploy. |
-| `01_preparar_dados.R` | Script de replicação e preparação dos dados. Não precisa rodar no deploy, mas deve ficar no repositório para transparência. |
-
-O arquivo `my_workspace_light.RData` deve ser gerado antes da publicação com `source("01_preparar_dados.R")`. Durante o deploy, o `.qmd` apenas carrega esse arquivo, reduzindo o tempo de inicialização do aplicativo.

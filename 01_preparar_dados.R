@@ -102,7 +102,7 @@ participacao <- va |>
 # 5. Malha municipal e união com os dados setoriais
 # -----------------------------------------------------------------------------
 
-br_muni <- read_municipality(code_muni = "all", year = 2020)
+br_muni <- read_municipality(code_muni = "all", year = 2021)
 
 br_map <- br_muni |>
   left_join(participacao, by = "code_muni")
