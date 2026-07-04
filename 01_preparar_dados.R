@@ -133,3 +133,51 @@ save(
   file = "my_workspace.RData",
   compress = "xz"
 )
+
+# -----------------------------------------------------------------------------
+# 7. Estatísticas descritivas PI
+# -----------------------------------------------------------------------------
+
+pi <- br_map |> 
+  dplyr::filter(abbrev_state == "PI") |> 
+  dplyr::mutate(
+    setor_dominante = dplyr::case_when(
+      part_agro >= part_ind & part_agro >= part_serv ~ "Agropecuária",
+      part_ind >= part_agro & part_ind >= part_serv ~ "Indústria",
+      TRUE ~ "Serviços"
+    )
+  )
+
+pi |> 
+  dplyr::count(setor_dominante) |> 
+  dplyr::mutate(percentual = scales::percent(n / sum(n), accuracy = 0.01)) 
+
+pi |> 
+  dplyr::summarise(
+    agropecuaria = scales::percent(mean(part_agro, na.rm = TRUE), accuracy = 0.01),
+    industria = scales::percent(mean(part_ind, na.rm = TRUE), accuracy = 0.01),
+    servicos = scales::percent(mean(part_serv, na.rm = TRUE), accuracy = 0.01)
+  )
+
+top5_setores <- dplyr::bind_rows(
+  pi |>
+    sf::st_drop_geometry() |>
+    dplyr::select(name_muni, abbrev_state, participacao = part_agro) |>
+    dplyr::mutate(setor = "Agropecuária"),
+
+  pi |>
+    sf::st_drop_geometry() |>
+    dplyr::select(name_muni, abbrev_state, participacao = part_ind) |>
+    dplyr::mutate(setor = "Indústria"),
+
+  pi |>
+    sf::st_drop_geometry() |>
+    dplyr::select(name_muni, abbrev_state, participacao = part_serv) |>
+    dplyr::mutate(setor = "Serviços")
+) |>
+  dplyr::group_by(setor) |>
+  dplyr::slice_max(participacao, n = 5, with_ties = FALSE) |>
+  dplyr::arrange(setor, dplyr::desc(participacao)) |>
+  dplyr::mutate(participacao = scales::percent(participacao, accuracy = 0.01))
+
+top5_setores
