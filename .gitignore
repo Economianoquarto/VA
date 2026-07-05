@@ -3,3 +3,17 @@
 .RData
 .Ruserdata
 .positai
+.gitignore_backup
+
+# Quarto render outputs
+*.html
+*_files/
+
+# Posit/RStudio deployment metadata
+rsconnect/
+
+# Local deployment/config state
+.posit/
+
+# Local data generated before deployment
+my_workspace.RData
