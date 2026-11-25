@@ -115,7 +115,7 @@ output$mapa_setorial <- renderLeaflet({
   bbox <- sf::st_bbox(mapa_uf)
 
   leaflet(mapa_uf) |>
-    addProviderTiles(providers$CartoDB.Positron) |>
+    addProviderTiles(providers$Esri.WorldGrayCanvas) |>
     addPolygons(
       fillColor = ~pal(setor_predominante),
       fillOpacity = 0.75,
